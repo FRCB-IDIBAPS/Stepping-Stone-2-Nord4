@@ -2,8 +2,8 @@
 
 # JOB DEFINITION PARAMETERS (Name, Stdout, Stderr)
 #SBATCH --job-name=JOB_SIMPLE
-#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/JOB_SIMPLE_%j.ut
-#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/JOB_SIMPLE_%jerr
+#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/JOB_SIMPLE_%j.out
+#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/JOB_SIMPLE_%j.err
 
 # GROUP CREDENTIALS AND BSC QUEUE
 #SBATCH --account=idib57
