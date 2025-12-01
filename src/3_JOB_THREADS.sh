@@ -12,7 +12,7 @@
 # RESOURCE ALLOCATION (tasks, cpus, nodes, time, array)
 #SBATCH --nodes=1
 #SBATCH --time=00:05:00
-#SBATCH --tasks=4
+#SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
 
 # NODE RESERVATION
