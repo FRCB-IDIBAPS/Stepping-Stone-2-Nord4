@@ -27,7 +27,7 @@ output_directory="/gpfs/projects/idib57/Stepping_Stone/output"
 start=$(date +%s)
 
 #Execute simple process
-fastqc $path_to_files/00$SLURM_ARRAY_TASK_ID.fastq.gz -o $output_directory
+fastqc $path_to_files/0$SLURM_ARRAY_TASK_ID.fastq.gz -o $output_directory
 
 #End time
 end=$(date +%s)
