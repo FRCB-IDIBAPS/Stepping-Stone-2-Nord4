@@ -1,0 +1,35 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+# fastp - adapter/quality trimming of FASTQ files (multi-threaded).
+#
+# Build off-cluster (Nord4 has no internet), then copy the image to the cluster:
+#   bash singularity/build.sh fastp
+#   rsync -av singularity/images/fastp.sif <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+
+%post
+    set -eu
+    /bin/micromamba install -y -p /opt/conda -c conda-forge -c bioconda \
+        bioconda::fastp=0.23.4
+    /bin/micromamba clean -a -y || true
+    /bin/micromamba list -p /opt/conda > /opt/conda-packages.txt
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec fastp "$@"
+
+%test
+    /opt/conda/bin/fastp --version
+
+%labels
+    Tool        fastp 0.23.4
+    BaseImage   mambaorg/micromamba:1.5.10
+    Packages    /opt/conda-packages.txt (resolved versions)
+
+%help
+    fastp 0.23.4. Example:
+      singularity exec --bind /gpfs/projects fastp.sif fastp --thread 4 -i in.fastq.gz -o trimmed.fastq.gz

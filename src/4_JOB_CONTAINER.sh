@@ -1,40 +1,65 @@
 #!/bin/bash
+# =============================================================================
+# APPROACH 4 - PARALLEL AND CONTAINERISED JOB
+# Same layout as approach 3 (4 tasks x 2 CPUs, one srun step per sample), but
+# the tools run inside a Singularity image instead of being loaded as modules:
+#   singularity exec <task>.sif <tool> ...
+# Images: /gpfs/projects/idib57/Stepping_Stone/singularity/images/<task>.sif
+# Definition files: singularity/bin/<task>.def
+#
+# Usage (from the repository folder):
+#   sbatch src/4_JOB_CONTAINER.sh <task>
+#   bash src/submit.sh 4 <task>
+# =============================================================================
 
 # JOB DEFINITION PARAMETERS (Name, Stdout, Stderr)
 #SBATCH --job-name=JOB_CONTAINER
-#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/JOB_CONTAINER_%A.out
-#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/JOB_CONTAINER_%A.err
+#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/%x_%j.out
+#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/%x_%j.err
 
 # GROUP CREDENTIALS AND BSC QUEUE
 #SBATCH --account=idib57
 #SBATCH --qos=cli
 
-# RESOURCE ALLOCATION (tasks, cpus, nodes, time, array)
+# RESOURCE ALLOCATION: 1 node, 4 tasks x 2 CPUs = 8 CPUs (~16 GB RAM on Nord4)
 #SBATCH --nodes=1
-#SBATCH --time=00:05:00
-#SBATCH --tasks=4
-#SBATCH --tasks-per-node=4
-#SBATCH --cpus-per-task=1
+#SBATCH --ntasks=4
+#SBATCH --cpus-per-task=2
+#SBATCH --time=00:15:00
 
 # NODE RESERVATION
 #SBATCH --reservation=curso
 
-module load singularity
+set -eo pipefail
+TASK="${1:-fastqc}"
+export EXEC_MODE=container   # <- the only difference with approach 3
 
-path_to_files="/gpfs/projects/idib57/Stepping_Stone/data/*.fastq.gz"
-output_directory="/gpfs/projects/idib57/Stepping_Stone/output"
-path_to_sif="/gpfs/projects/idib57/Stepping_Stone/containers/fastqc.sif"
+# sbatch runs a COPY of this script, so find the repository from the submit folder
+for d in "${REPO_DIR:-}" "${SLURM_SUBMIT_DIR:-$PWD}" "${SLURM_SUBMIT_DIR:-$PWD}/.." "$(dirname "$0")/.."; do
+    [[ -f $d/src/lib/common.sh ]] && { source "$d/src/lib/common.sh"; break; }
+done
+type job_record_start &>/dev/null || { echo "ERROR: submit from the repository folder" >&2; exit 1; }
 
-#Start time
-start=$(date +%s)
+load_task "$TASK"
+load_samples
+job_record_start 4_container "${#SAMPLES[@]}"  # prints job info, writes the run record at exit
+load_software                                   # module load singularity + check the image
 
-#Execute simple process
-singularity exec $path_to_sif fastqc $path_to_files -o $output_directory --threads 4
+OUTDIR="$OUTPUT_ROOT/$USER/4_container/$TASK"
+THREADS="${SLURM_CPUS_PER_TASK:-1}"
+(( ${#SAMPLES[@]} <= ${SLURM_NTASKS:-1} )) ||
+    log "NOTE: ${#SAMPLES[@]} samples but ${SLURM_NTASKS:-1} tasks: extra samples wait for a free task"
 
-#End time
-end=$(date +%s)
+# ---- The work: every sample as a parallel job step, tools in the container --
+pids=()
+for fq in "${SAMPLES[@]}"; do
+    srun --nodes=1 --ntasks=1 --cpus-per-task="$THREADS" --exact $(step_mem_option) \
+        bash "$REPO_DIR/src/run_sample.sh" "$TASK" "$fq" "$OUTDIR" "$THREADS" &
+    pids+=("$!")
+done
 
-#Print elapsed time for the whole process (can also be checked from the terminal while the process is active)
-elapsed=$(( end - start ))
-printf "Elapsed time: %02d:%02d:%02d\n" \
-       $((elapsed/3600)) $(( (elapsed%3600)/60 )) $((elapsed%60))
+failed=0
+for pid in "${pids[@]}"; do
+    wait "$pid" || failed=$((failed + 1))
+done
+(( failed == 0 )) || die "$failed of ${#SAMPLES[@]} samples failed"

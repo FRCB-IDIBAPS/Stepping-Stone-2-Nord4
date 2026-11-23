@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+# FastQC - quality-control report for FASTQ files.
+#
+# Build off-cluster (Nord4 has no internet), then copy the image to the cluster:
+#   bash singularity/build.sh fastqc
+#   rsync -av singularity/images/fastqc.sif <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+#
+# Use:
+#   singularity exec fastqc.sif fastqc --help
+#   singularity run  fastqc.sif --help          # %runscript calls fastqc directly
+
+%post
+    set -eu
+    # %post does NOT inherit the Docker image's ENV: call micromamba by absolute path.
+    /bin/micromamba install -y -p /opt/conda -c conda-forge -c bioconda \
+        bioconda::fastqc=0.12.1
+    /bin/micromamba clean -a -y || true
+    /bin/micromamba list -p /opt/conda > /opt/conda-packages.txt
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec fastqc "$@"
+
+%test
+    /opt/conda/bin/fastqc --version
+
+%labels
+    Tool        FastQC 0.12.1
+    BaseImage   mambaorg/micromamba:1.5.10
+    Packages    /opt/conda-packages.txt (resolved versions)
+
+%help
+    FastQC 0.12.1. Example:
+      singularity exec --bind /gpfs/projects fastqc.sif fastqc --threads 2 -o out/ sample.fastq.gz

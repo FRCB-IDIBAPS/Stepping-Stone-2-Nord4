@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+# Jellyfish - k-mer counting (multi-threaded, memory hungry).
+# The bioconda package is called "kmer-jellyfish"; the binary is "jellyfish".
+#
+# Build off-cluster (Nord4 has no internet), then copy the image to the cluster:
+#   bash singularity/build.sh jellyfish
+#   rsync -av singularity/images/jellyfish.sif <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+
+%post
+    set -eu
+    /bin/micromamba install -y -p /opt/conda -c conda-forge -c bioconda \
+        bioconda::kmer-jellyfish=2.3.1
+    /bin/micromamba clean -a -y || true
+    /bin/micromamba list -p /opt/conda > /opt/conda-packages.txt
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec jellyfish "$@"
+
+%test
+    /opt/conda/bin/jellyfish --version
+
+%labels
+    Tool        Jellyfish 2.3.1
+    BaseImage   mambaorg/micromamba:1.5.10
+    Packages    /opt/conda-packages.txt (resolved versions)
+
+%help
+    Jellyfish 2.3.1. Jellyfish cannot read .gz files, so decompress on the fly:
+      zcat sample.fastq.gz | singularity exec jellyfish.sif jellyfish count -m 21 -s 100M -C -t 4 -o sample.jf /dev/stdin

@@ -1,0 +1,35 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+# SeqKit - fast FASTA/FASTQ toolkit (used here for `seqkit stats`).
+#
+# Build off-cluster (Nord4 has no internet), then copy the image to the cluster:
+#   bash singularity/build.sh seqkit
+#   rsync -av singularity/images/seqkit.sif <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+
+%post
+    set -eu
+    /bin/micromamba install -y -p /opt/conda -c conda-forge -c bioconda \
+        bioconda::seqkit=2.8.2
+    /bin/micromamba clean -a -y || true
+    /bin/micromamba list -p /opt/conda > /opt/conda-packages.txt
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec seqkit "$@"
+
+%test
+    /opt/conda/bin/seqkit version
+
+%labels
+    Tool        SeqKit 2.8.2
+    BaseImage   mambaorg/micromamba:1.5.10
+    Packages    /opt/conda-packages.txt (resolved versions)
+
+%help
+    SeqKit 2.8.2. Example:
+      singularity exec --bind /gpfs/projects seqkit.sif seqkit stats --all --tabular sample.fastq.gz

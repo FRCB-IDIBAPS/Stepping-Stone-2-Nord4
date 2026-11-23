@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+# Bowtie2 + SAMtools - short-read alignment and BAM sorting/indexing.
+# Both tools live in one image because they are used together in a pipe:
+#   bowtie2 ... | samtools sort ...
+#
+# Build off-cluster (Nord4 has no internet), then copy the image to the cluster:
+#   bash singularity/build.sh bowtie2
+#   rsync -av singularity/images/bowtie2.sif <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+
+%post
+    set -eu
+    /bin/micromamba install -y -p /opt/conda -c conda-forge -c bioconda \
+        bioconda::bowtie2=2.5.4 \
+        bioconda::samtools=1.21
+    /bin/micromamba clean -a -y || true
+    /bin/micromamba list -p /opt/conda > /opt/conda-packages.txt
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec bowtie2 "$@"
+
+%test
+    /opt/conda/bin/bowtie2 --version | head -n 1
+    /opt/conda/bin/samtools --version | head -n 1
+
+%labels
+    Tool        Bowtie2 2.5.4 + SAMtools 1.21
+    BaseImage   mambaorg/micromamba:1.5.10
+    Packages    /opt/conda-packages.txt (resolved versions)
+
+%help
+    Bowtie2 2.5.4 and SAMtools 1.21. Example:
+      singularity exec bowtie2.sif bowtie2-build --threads 4 genome.fa genome
+      singularity exec bowtie2.sif bowtie2 -p 4 -x genome -U reads.fastq.gz | singularity exec bowtie2.sif samtools sort -o reads.bam -
