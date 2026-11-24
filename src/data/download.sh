@@ -1,7 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# Download the input datasets of every task into src/data/<task>/.
+# Re-create the input datasets of every task in src/data/<task>/.
 # Each sample is the first N reads of a public ENA run (see <task>/SOURCE.md).
+# The datasets are already in git: you only need this to rebuild or change them.
 #
 # Run OFF-CLUSTER (Nord4 has no internet), then copy src/data to Nord4:
 #   bash src/data/download.sh                # all tasks

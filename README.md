@@ -78,16 +78,18 @@ never overwrite each other. Logs go to `bin/out/` and `bin/err/`.
 
 ## Instructor setup (before the course)
 
-1. **Data**: the FASTQ files are not in git (~600 MB). Download them
-   off-cluster, since Nord4 has no internet, and copy them over:
+1. **Data**: the datasets are in git (`src/data/`, ~630 MB), so a clone or
+   copy of the repository on Nord4 already has everything. Nothing needs to be
+   downloaded. To rebuild or change them, run `src/data/download.sh`
+   off-cluster (Nord4 has no internet) and copy them over:
    ```bash
-   bash src/data/download.sh                    # all tasks (or: download.sh fastp bowtie2)
+   FORCE=1 bash src/data/download.sh            # all tasks (or: download.sh fastp bowtie2)
    rsync -av --progress src/data/ \
        <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/src/data/
    ```
    The script streams only the first reads of each public run. It retries
    dropped connections and keeps a file only if it has exactly the expected
-   number of reads. Run it again to finish any failed files.
+   number of reads.
 2. **Images**: build them off-cluster and copy them over:
    ```bash
    bash singularity/build.sh                    # needs apptainer/singularity + fakeroot
@@ -118,8 +120,8 @@ src/
   collect_results.sh    comparison tables
   run_sample.sh         processes one sample with one task (used by every approach)
   tasks/<task>.sh       task definitions
-  data/<task>/          input FASTQs (not in git) + SOURCE.md
-  data/download.sh      fetch all datasets
+  data/<task>/          input FASTQs + SOURCE.md
+  data/download.sh      re-create the datasets from ENA/NCBI
   config.sh             paths
   check_setup.sh  prepare_reference.sh                                  instructor tools
   lib/common.sh         shared helpers (records, modules/containers, logging)

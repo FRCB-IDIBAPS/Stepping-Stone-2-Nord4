@@ -6,10 +6,10 @@ results/
 bin/out/
 bin/err/
 
-# Task datasets: keep each SOURCE.md (provenance + download commands), not the
-# large files; they are fetched again with src/data/download.sh
-src/data/**/*.fastq.gz
-src/data/**/*.fa
+# Task datasets (src/data/) ARE tracked, so a clone is ready to run.
+# Temporary files of src/data/download.sh are not:
+src/data/**/.*.part
+src/data/**/*.part
 
 # Singularity images are built from singularity/bin/*.def (too big for git)
 singularity/images/*
