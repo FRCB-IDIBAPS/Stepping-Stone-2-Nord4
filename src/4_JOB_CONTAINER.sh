@@ -4,7 +4,7 @@
 # Same layout as approach 3 (4 tasks x 2 CPUs, one srun step per sample), but
 # the tools run inside a Singularity image instead of being loaded as modules:
 #   singularity exec <task>.sif <tool> ...
-# Images: /gpfs/projects/idib57/Stepping_Stone/singularity/images/<task>.sif
+# Images: <workspace>/singularity/images/<task>.sif (SIF_DIR in src/config.sh)
 # Definition files: singularity/bin/<task>.def
 #
 # Usage (from the repository folder):
@@ -14,8 +14,8 @@
 
 # JOB DEFINITION PARAMETERS (Name, Stdout, Stderr)
 #SBATCH --job-name=JOB_CONTAINER
-#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/%x_%j.out
-#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/%x_%j.err
+#SBATCH --output=bin/out/%x_%j.out
+#SBATCH --error=bin/err/%x_%j.err
 
 # GROUP CREDENTIALS AND BSC QUEUE
 #SBATCH --account=idib57
@@ -26,9 +26,6 @@
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=2
 #SBATCH --time=00:15:00
-
-# NODE RESERVATION
-#SBATCH --reservation=curso
 
 set -eo pipefail
 TASK="${1:-fastqc}"

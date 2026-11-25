@@ -1,9 +1,26 @@
 #!/bin/bash
 # =============================================================================
 # INSTRUCTORS - check that everything the exercise needs is in place.
-# Run on a Nord4 login node before the course:   bash src/check_setup.sh
+# Run it before the course, from the workspace folder, as a small job:
+#   sbatch src/check_setup.sh        # report in bin/out/CHECK_SETUP_<job_id>.out
+# (bash src/check_setup.sh also works: it only lists files and loads modules)
 # =============================================================================
-source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+#SBATCH --job-name=CHECK_SETUP
+#SBATCH --output=bin/out/%x_%j.out
+#SBATCH --error=bin/err/%x_%j.err
+#SBATCH --account=idib57
+#SBATCH --qos=cli
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:10:00
+
+# sbatch runs a COPY of this script, so find the repository from the submit folder
+for d in "${REPO_DIR:-}" "${SLURM_SUBMIT_DIR:-$PWD}" "${SLURM_SUBMIT_DIR:-$PWD}/.." "$(dirname "$0")/.."; do
+    [[ -f $d/src/lib/common.sh ]] && { source "$d/src/lib/common.sh"; break; }
+done
+type load_task &>/dev/null || { echo "ERROR: submit from the repository folder" >&2; exit 1; }
+echo "Workspace: $BASE_DIR"
 
 problems=0
 ok()   { printf '  [ OK ] %s\n' "$*"; }
@@ -29,16 +46,15 @@ for d in "$LOG_DIR/out" "$LOG_DIR/err" "$OUTPUT_ROOT" "$RESULTS_DIR"; do
     fi
 done
 
-echo "Software per task (modules for approaches 1-3, images for approach 4)"
+echo "Software per task (modules or software/bin for approaches 1-3, images for approach 4)"
 for task in $(available_tasks); do
     # subshell: each task's modules are loaded in isolation
     report=$(
         load_task "$task"
-        # shellcheck disable=SC2086
-        if module load $TASK_MODULES &>/dev/null && command -v ${TASK_TOOLS%% *} >/dev/null; then
-            echo "  [ OK ] $task: module load $TASK_MODULES"
+        if native_setup &>/dev/null; then
+            echo "  [ OK ] $task: $(native_source) -> $(command -v ${TASK_TOOLS%% *})"
         else
-            echo "  [FAIL] $task: module load $TASK_MODULES (edit TASK_MODULES in src/tasks/$task.sh)"
+            echo "  [FAIL] $task: $(native_source), tools: $TASK_TOOLS (edit TASK_MODULES in src/tasks/$task.sh)"
         fi
         [[ -f $SIF ]] && echo "  [ OK ] $task: $SIF" || echo "  [FAIL] $task: missing $SIF"
     )
@@ -52,8 +68,6 @@ echo "Reference for bowtie2"
 
 echo "Slurm"
 command -v sbatch >/dev/null && ok "sbatch available" || fail "sbatch not found"
-scontrol show reservation curso &>/dev/null && ok "reservation 'curso' exists" ||
-    fail "reservation 'curso' not found (yet?)"
 
 echo
 (( problems == 0 )) && echo "All good." || echo "$problems problem(s) found."

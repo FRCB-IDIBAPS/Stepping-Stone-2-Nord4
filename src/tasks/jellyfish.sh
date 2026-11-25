@@ -5,7 +5,7 @@
 #   standard nodes). With a bigger hash (JELLYFISH_HASH) you must ask for more
 #   CPUs just to get the RAM.
 # -----------------------------------------------------------------------------
-TASK_MODULES="jellyfish"
+TASK_MODULES="jellyfish/2.3.0"
 TASK_TOOLS="jellyfish"
 TASK_IMAGE="jellyfish.sif"
 

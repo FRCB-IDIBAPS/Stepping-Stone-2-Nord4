@@ -5,7 +5,7 @@
 #   given at once. With one file per call, extra CPUs sit idle (check the
 #   CPU-efficiency column in collect_results.sh).
 # -----------------------------------------------------------------------------
-TASK_MODULES="java fastqc"
+TASK_MODULES="java fastqc/0.11.9"
 TASK_TOOLS="fastqc"
 TASK_IMAGE="fastqc.sif"
 

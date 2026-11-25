@@ -3,7 +3,7 @@
 # Profile: CPU bound, scales well with threads (up to ~8), ~1 GB RAM.
 #   Writing the compressed output (.fastq.gz) is the most expensive part.
 # -----------------------------------------------------------------------------
-TASK_MODULES="fastp"
+TASK_MODULES="" # no fastp module on Nord4: static build in software/bin
 TASK_TOOLS="fastp"
 TASK_IMAGE="fastp.sif"
 

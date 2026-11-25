@@ -3,8 +3,11 @@ output/*
 !output/.gitkeep
 results/
 /reference/
-bin/out/
-bin/err/
+# Slurm logs; the folders are kept because Slurm cannot create them
+bin/out/*
+bin/err/*
+!bin/out/.gitkeep
+!bin/err/.gitkeep
 
 # Task datasets (src/data/) ARE tracked, so a clone is ready to run.
 # Temporary files of src/data/download.sh are not:

@@ -6,7 +6,7 @@
 # Requires a bowtie2 index (built once by the instructors):
 #   sbatch src/prepare_reference.sh
 # -----------------------------------------------------------------------------
-TASK_MODULES="bowtie2 samtools"
+TASK_MODULES="bowtie2/2.3.2 samtools/1.9"
 TASK_TOOLS="bowtie2 samtools"
 TASK_IMAGE="bowtie2.sif"
 

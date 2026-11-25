@@ -13,8 +13,8 @@
 
 # JOB DEFINITION PARAMETERS (Name, Stdout, Stderr)   %A = array id, %a = element
 #SBATCH --job-name=JOB_ARRAY
-#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/%x_%A_%a.out
-#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/%x_%A_%a.err
+#SBATCH --output=bin/out/%x_%A_%a.out
+#SBATCH --error=bin/err/%x_%A_%a.err
 
 # GROUP CREDENTIALS AND BSC QUEUE
 #SBATCH --account=idib57
@@ -26,9 +26,6 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --time=00:15:00
 #SBATCH --array=1-4
-
-# NODE RESERVATION
-#SBATCH --reservation=curso
 
 set -eo pipefail
 TASK="${1:-fastqc}"

@@ -93,9 +93,14 @@ submit_one() {
     info=$(approach_info "$approach") || die "Unknown approach '$approach' (1-4, simple, array, threads, container)"
     read -r script label <<<"$info"
     load_task "$task"
+    load_samples # fails early if the task has no input; sizes the array
     name="${script#?_}"; name="${name%.sh}_$task" # JOB_SIMPLE_fastqc
 
-    local args=(--parsable --job-name="$name" --export="ALL,REPO_DIR=$REPO_DIR")
+    # Log paths from LOG_DIR (they override the #SBATCH lines, which cannot use variables)
+    local logs="%x_%j"
+    [[ $script == 2_* ]] && logs="%x_%A_%a"
+    local args=(--parsable --job-name="$name" --export="ALL,REPO_DIR=$REPO_DIR"
+        --output="$LOG_DIR/out/$logs.out" --error="$LOG_DIR/err/$logs.err")
     [[ $script == 2_* ]] && args+=(--array="1-${#SAMPLES[@]}")
 
     echo "-> sbatch ${args[*]:1} $* src/$script $task"
@@ -111,7 +116,6 @@ submit_one() {
 approach_arg=$1 task_arg=$2; shift 2
 
 command -v sbatch >/dev/null || die "sbatch not found: run this on a Nord4 login node"
-load_samples
 mkdir -p "$LOG_DIR/out" "$LOG_DIR/err" # Slurm cannot create the log folders itself
 
 approaches=("$approach_arg"); [[ $approach_arg == all ]] && approaches=(1 2 3 4)
@@ -123,4 +127,4 @@ for t in "${tasks[@]}"; do
     done
 done
 echo "Follow your jobs with:   squeue --me"
-echo "Compare when finished:   bash src/collect_results.sh"
+echo "Compare when finished:   sbatch src/collect_results.sh --mine"

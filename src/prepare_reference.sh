@@ -10,8 +10,8 @@
 #   sbatch --export=ALL,EXEC_MODE=container src/prepare_reference.sh   # image
 # =============================================================================
 #SBATCH --job-name=PREPARE_REFERENCE
-#SBATCH --output=/gpfs/projects/idib57/Stepping_Stone/bin/out/%x_%j.out
-#SBATCH --error=/gpfs/projects/idib57/Stepping_Stone/bin/err/%x_%j.err
+#SBATCH --output=bin/out/%x_%j.out
+#SBATCH --error=bin/err/%x_%j.err
 #SBATCH --account=idib57
 #SBATCH --qos=cli
 #SBATCH --nodes=1

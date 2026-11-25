@@ -6,21 +6,50 @@ approach fits each task best.
 
 ## Quick start (participants)
 
-Run everything from the repository folder on a Nord4 login node:
+Run everything from the **workspace**, the folder where the repository was
+copied on Nord4 (by default `/gpfs/projects/idib57/Stepping_Stone`):
 
 ```bash
-cd /gpfs/projects/idib57/Stepping_Stone
+cd /gpfs/projects/idib57/Stepping_Stone   # or wherever your workspace is
 
-bash src/submit.sh 1 fastqc        # approach 1 with FastQC
-bash src/submit.sh all fastqc      # the 4 approaches with FastQC
-squeue --me                        # follow your jobs
-bash src/collect_results.sh --mine # compare your runs once they finish
+bash src/submit.sh 1 fastqc          # approach 1 with FastQC
+bash src/submit.sh all fastqc        # the 4 approaches with FastQC
+squeue --me                          # follow your jobs
+sbatch src/collect_results.sh --mine # compare your runs once they finish
 ```
 
 `submit.sh` runs `sbatch` for you (it prints the exact command) and also
 records your job's **priority and position in the queue** right after
 submission. You can still use plain `sbatch src/1_JOB_SIMPLE.sh fastqc`, but then
 the queue position is not recorded.
+
+### Where the workspace is
+
+All paths derive from `BASE_DIR` (in `src/config.sh`), which defaults to
+the folder this copy of the repository is in. Copy the repository anywhere and
+it works there with no edits, as long as you submit **from that folder**
+(the `#SBATCH --output` lines use `bin/out/` relative to it). To use one copy's
+scripts with another folder's data and results, set `BASE_DIR` (or `DATA_ROOT`,
+`RESULTS_DIR`, ... individually) before submitting:
+
+```bash
+export BASE_DIR=/gpfs/projects/idib57/other_place
+bash src/submit.sh all fastqc
+```
+
+### What runs where
+
+Nothing computes on the login node. All the work runs in Slurm jobs:
+
+| Command | Where it runs |
+|---|---|
+| `bash src/submit.sh ...` | login node, but it only calls `sbatch`, `squeue` and `sprio` (submitting, as with plain `sbatch`) |
+| `src/[1-4]_JOB_*.sh`, `src/prepare_reference.sh` | compute nodes (jobs) |
+| `sbatch src/collect_results.sh`, `sbatch src/check_setup.sh` | compute nodes (1-CPU jobs; output in `bin/out/`) |
+| `src/data/download.sh`, `singularity/build.sh` | your own machine, not Nord4 (they need internet) |
+
+`collect_results.sh` and `check_setup.sh` also work with `bash`, since they only
+read small files, but submitting them keeps the login node free.
 
 ## The four approaches
 
@@ -59,7 +88,7 @@ and put its FASTQ files in `src/data/<task>/`.
 | right after `submit.sh` | `results/submissions/<job_id>.tsv` | priority and its factors (`sprio`: age, fairshare, job size, partition, QOS), rank among the pending jobs in the same partition and reservation, estimated start |
 | `collect_results.sh` | `results/sacct/<job_id>.tsv` | CPU time actually used and peak memory (`sacct`) |
 
-`bash src/collect_results.sh` merges these into:
+`sbatch src/collect_results.sh` merges these into:
 
 - `results/runs.tsv`: one line per run (a whole array counts as one run)
 - `results/summary.tsv`: averages per **task × approach**, successful runs only
@@ -69,8 +98,20 @@ last job finished), `cpu_h` (CPU-hours reserved, i.e. the cost), `cpu_eff_%`
 (CPU used / CPU reserved), `priority` and `rank`. With `--mine`, the tables
 contain only your runs and are written to `output/<user>/`.
 
+To see which approach wins each task on each metric, plot a summary on any
+machine with Python and matplotlib (copy the folder over from Nord4 first):
+
+```bash
+python3 src/plot_results.py output/<user>        # or results/ for everybody
+```
+
+It prints a "best approach per task" table and writes `summary.png` next to
+`summary.tsv`, opening a window when a display is available (`--no-show` only
+writes the file, `--dark` for a dark background). Values within 5% of the best
+count as a tie (`--tolerance`).
+
 `sacct` only shows you your own jobs, so **ask everyone to run
-`bash src/collect_results.sh --mine` at the end**. That caches their CPU data so
+`sbatch src/collect_results.sh --mine` at the end**. That caches their CPU data so
 the instructors' full summary includes it.
 
 Outputs are written to `output/<user>/<approach>/<task>/`, so participants
@@ -85,7 +126,7 @@ never overwrite each other. Logs go to `bin/out/` and `bin/err/`.
    ```bash
    FORCE=1 bash src/data/download.sh            # all tasks (or: download.sh fastp bowtie2)
    rsync -av --progress src/data/ \
-       <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/src/data/
+       <user>@transfer1.bsc.es:<workspace>/src/data/
    ```
    The script streams only the first reads of each public run. It retries
    dropped connections and keeps a file only if it has exactly the expected
@@ -94,7 +135,7 @@ never overwrite each other. Logs go to `bin/out/` and `bin/err/`.
    ```bash
    bash singularity/build.sh                    # needs apptainer/singularity + fakeroot
    rsync -av --progress singularity/images/*.sif \
-       <user>@transfer1.bsc.es:/gpfs/projects/idib57/Stepping_Stone/singularity/images/
+       <user>@transfer1.bsc.es:<workspace>/singularity/images/
    ```
    Definition files are in `singularity/bin/<task>.def` (micromamba + pinned
    bioconda versions, each with a `%test` section).
@@ -102,14 +143,24 @@ never overwrite each other. Logs go to `bin/out/` and `bin/err/`.
    builds it from `src/data/bowtie2/reference/genome.fa` into
    `reference/bowtie2/`. Add `--export=ALL,EXEC_MODE=container` to use the image
    instead of the module.
-4. **Modules**: approaches 1–3 use `module load`. Check that the module names
-   in `src/tasks/*.sh` (`TASK_MODULES`) exist on Nord4.
-5. **Check**: `bash src/check_setup.sh` verifies the data, writable folders,
-   modules, images, reference index and the `curso` reservation.
+4. **Native software** (approaches 1–3): `module load` of the names in
+   `TASK_MODULES` (`src/tasks/<task>.sh`). Nord4 has no module for seqkit and
+   fastp, so those tasks set `TASK_MODULES=""` and use the official static
+   builds in `software/bin/`, which are in git and have the same versions as the
+   images. `bash software/install.sh` (off-cluster) re-downloads them. To find
+   module names: `module spider <tool>`.
+5. **Check**: `sbatch src/check_setup.sh` verifies the data, writable
+   folders, modules, images and reference index. The report is in
+   `bin/out/CHECK_SETUP_<job_id>.out`.
+
+The scripts do not request a reservation. If the course gets one, add it at
+submission time (extra options are passed to `sbatch`):
+`bash src/submit.sh all fastqc --reservation=<name>`.
 
 All paths are set in `src/config.sh`, and any of them can be overridden from
-the environment. If you change `LOG_DIR`, also update the `#SBATCH --output/--error`
-lines, because Slurm cannot read variables there.
+the environment. `submit.sh` passes `LOG_DIR` to `sbatch`. With plain `sbatch`,
+logs go to `bin/out/` and `bin/err/` of the folder you submit from, because
+Slurm cannot read variables in `#SBATCH` lines.
 
 ## Layout
 
@@ -118,6 +169,7 @@ src/
   1_JOB_SIMPLE.sh 2_JOB_ARRAY.sh 3_JOB_THREADS.sh 4_JOB_CONTAINER.sh   the four approaches
   submit.sh             sbatch + queue priority/rank snapshot
   collect_results.sh    comparison tables
+  plot_results.py       plot them: best approach per task and metric
   run_sample.sh         processes one sample with one task (used by every approach)
   tasks/<task>.sh       task definitions
   data/<task>/          input FASTQs + SOURCE.md
@@ -125,8 +177,16 @@ src/
   config.sh             paths
   check_setup.sh  prepare_reference.sh                                  instructor tools
   lib/common.sh         shared helpers (records, modules/containers, logging)
+software/
+  bin/seqkit bin/fastp  static builds for tools without a Nord4 module
+  install.sh            re-download them
 singularity/
   bin/<task>.def        Singularity definition files
   images/<task>.sif     built images (not in git)
   build.sh              build the images
+support/
+  slurm_priority.png    how Slurm computes job priority, with a real Nord4 example
+  slurm_priority.py     redraws it (python3 support/slurm_priority.py)
+  *.pdf                 BSC access and SSH guides
+presentation.pdf        course slides
 ```

@@ -5,7 +5,7 @@
 #   become a large share of the total time. Good to see when parallelising
 #   is NOT worth it.
 # -----------------------------------------------------------------------------
-TASK_MODULES="seqkit"
+TASK_MODULES="" # no seqkit module on Nord4: static build in software/bin
 TASK_TOOLS="seqkit"
 TASK_IMAGE="seqkit.sif"
 

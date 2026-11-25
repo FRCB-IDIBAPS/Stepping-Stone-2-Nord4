@@ -3,8 +3,9 @@
 # Turn the run records of all participants into tables that compare the four
 # approaches for every task.
 #
-# Usage: bash src/collect_results.sh          # everybody's runs
-#        bash src/collect_results.sh --mine   # only your runs
+# Usage: sbatch src/collect_results.sh          # everybody's runs
+#        sbatch src/collect_results.sh --mine   # only your runs
+#        (tables printed in bin/out/COLLECT_RESULTS_<job_id>.out; bash also works)
 #
 # Inputs  (written automatically):
 #   results/jobs/<job_id>.tsv         by every job when it ends
@@ -23,15 +24,30 @@
 #   cpu_eff_%      CPU time really used / CPU time reserved
 #   rank           position among pending jobs right after submission (submit.sh)
 # =============================================================================
+# Small job: 1 CPU, a few minutes (it reads small files and queries sacct)
+#SBATCH --job-name=COLLECT_RESULTS
+#SBATCH --output=bin/out/%x_%j.out
+#SBATCH --error=bin/err/%x_%j.err
+#SBATCH --account=idib57
+#SBATCH --qos=cli
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:10:00
+
 set -eo pipefail
-source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# sbatch runs a COPY of this script, so find the repository from the submit folder
+for d in "${REPO_DIR:-}" "${SLURM_SUBMIT_DIR:-$PWD}" "${SLURM_SUBMIT_DIR:-$PWD}/.." "$(dirname "$0")/.."; do
+    [[ -f $d/src/lib/common.sh ]] && { source "$d/src/lib/common.sh"; break; }
+done
+type load_task &>/dev/null || { echo "ERROR: submit from the repository folder" >&2; exit 1; }
 export LC_ALL=C # decimal point, not comma (ssh may forward e.g. es_ES)
 
 mine=""
 case ${1:-} in
     "") ;;
     --mine) mine="$USER" ;;
-    *) sed -n '6,7s/^# \{0,1\}//p' "${BASH_SOURCE[0]}"; exit 1 ;;
+    *) sed -n '6,8s/^# \{0,1\}//p' "${BASH_SOURCE[0]}"; exit 1 ;;
 esac
 
 jobs_dir="$RESULTS_DIR/jobs"
@@ -63,7 +79,9 @@ sacct_summary() {
             if (u == "T") return v * 1048576
             return v / 1048576
         }
-        $1 == id { state = $2; alloc = $3; cpu = secs($4) }
+        # Compare as TEXT: as numbers, step "123.3" == job "123" and the last
+        # srun step would overwrite the job totals (approaches 3 and 4)
+        ($1 "") == (id "") { state = $2; alloc = $3; cpu = secs($4) }
         { m = mb($5); if (m > rss) rss = m }
         END {
             if (state == "" || state ~ /^(PENDING|RUNNING|COMPLETING|REQUEUED|SUSPENDED)/) exit 1

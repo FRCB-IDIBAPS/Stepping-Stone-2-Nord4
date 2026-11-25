@@ -62,22 +62,42 @@ sample_name() {
 }
 
 # ----------------------------------------------------------------- software --
-# native:    module load <TASK_MODULES>
+# Native tools: Nord4 modules (TASK_MODULES) and, for tools without a module,
+# the static builds in $SOFTWARE_DIR/bin (TASK_MODULES="" in the task file).
+# Returns 1 if a module does not load, 2 if a tool is still not found.
+native_setup() {
+    local tool
+    [[ -d $SOFTWARE_DIR/bin ]] && export PATH="$SOFTWARE_DIR/bin:$PATH"
+    if [[ -n $TASK_MODULES ]]; then
+        # shellcheck disable=SC2086  # TASK_MODULES is a space-separated list
+        module load $TASK_MODULES || return 1
+    fi
+    for tool in $TASK_TOOLS; do
+        command -v "$tool" >/dev/null || return 2
+    done
+}
+
+# Where the native tools come from, for the logs
+native_source() {
+    if [[ -n $TASK_MODULES ]]; then echo "module load $TASK_MODULES"
+    else echo "static build in $SOFTWARE_DIR/bin (no module on Nord4)"; fi
+}
+
+# native:    modules / $SOFTWARE_DIR/bin (see native_setup)
 # container: module load singularity + check that the task image exists
 load_software() {
-    local tool
     if [[ $EXEC_MODE == container ]]; then
         command -v singularity >/dev/null || module load singularity \
             || die "Could not load the singularity module"
         [[ -f $SIF ]] || die "Image not found: $SIF (build it with singularity/build.sh)"
         log "Software: $(basename "$SIF") ($(singularity --version))"
     else
-        # shellcheck disable=SC2086  # TASK_MODULES is a space-separated list
-        module load $TASK_MODULES || die "Could not load modules: $TASK_MODULES"
-        for tool in $TASK_TOOLS; do
-            command -v "$tool" >/dev/null || die "'$tool' not found after 'module load $TASK_MODULES'"
-        done
-        log "Software: module load $TASK_MODULES"
+        native_setup
+        case $? in
+            1) die "Could not load modules: $TASK_MODULES" ;;
+            2) die "'$TASK_TOOLS' not found ($(native_source))" ;;
+        esac
+        log "Software: $(native_source)"
     fi
 }
 
